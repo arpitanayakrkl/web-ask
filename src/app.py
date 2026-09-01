@@ -12,15 +12,22 @@ if "chat_history" not in st.session_state:
 with st.sidebar:
   st.header("settings")
   website_url = st.text_input("website url")
+if website_url is None or  website_url == "":
+  st.info("please enter a website url")
+else:
+  user_query=st.chat_input("Ask me!!")
+  if user_query is not None and user_query !="":
+    response=get_response(user_query)
+    st.session_state.chat_history.append(HumanMessage(content=user_query))
+    st.session_state.chat_history.append(AIMessage(content=response))
+  
+  #conversation 
+  for message in st.session_state.chat_history:
+    if isinstance(message,AIMessage):
+      with st.chat_message("AI"):
+       st.write(message.content)
+    elif isinstance(message,HumanMessage):
+      with st.chat_message("You"):
+        st.write(message.content)
 
-user_query=st.chat_input("Ask me!!")
-if user_query is not None and user_query !="":
-  response=get_response(user_query)
-  st.session_state.chat_history.append(HumanMessage(content=user_query))
-  st.session_state.chat_history.append(AIMessage(content=response))
-  with st.chat_message("Human"):
-   st.write(user_query)
-  with st.chat_message("AI"):
-   st.write(response)
-with st.sidebar:
-  st.write(st.session_state.chat_history)
+
