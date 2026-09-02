@@ -1,6 +1,7 @@
 import streamlit as st
 from langchain_core.messages import AIMessage,HumanMessage
 from langchain_community.document_loaders import WebBaseLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def get_response(user_input):
   return "I dont know"
@@ -8,8 +9,13 @@ def get_response(user_input):
 def get_vectorstore_from_url(url):
   #get text from website and convert it into vectorstore 
   loader = WebBaseLoader(url)
-  documents = loader.load()
-  return documents
+  document = loader.load()
+  #document splitting 
+  text_splitter = RecursiveCharacterTextSplitter()
+  document_chunks = text_splitter.split_documents(document)
+
+
+  return document_chunks
 
 
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
