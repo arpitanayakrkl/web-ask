@@ -2,6 +2,11 @@ import streamlit as st
 from langchain_core.messages import AIMessage,HumanMessage
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_response(user_input):
   return "I dont know"
@@ -13,9 +18,9 @@ def get_vectorstore_from_url(url):
   #document splitting 
   text_splitter = RecursiveCharacterTextSplitter()
   document_chunks = text_splitter.split_documents(document)
-
-
-  return document_chunks
+  #create vectorstore from document chunks
+  vectorstore = Chroma.from_documents(document_chunks, embedding=GoogleGenerativeAIEmbeddings())
+  return vectorstore
 
 
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
@@ -30,10 +35,7 @@ with st.sidebar:
 if website_url is None or  website_url == "":
   st.info("please enter a website url")
 else:
-  documents = get_vectorstore_from_url(website_url)
-  with st.sidebar:
-    st.write(documents)
-
+  document_chunks = get_vectorstore_from_url(website_url)
   #user input here 
   user_query=st.chat_input("Ask me!!")
   if user_query is not None and user_query !="":
