@@ -45,28 +45,34 @@ def get_context_retriever_chain(vector_store):
   retriever_chain=create_history_aware_retriever(llm=llm,retriever=retriever,prompt=prompt)
   return retriever_chain
 
-def get_conversational_rag_chain(vector_store):
-  llm=ChatGroq(
-    model="openai/gpt-oss-120b",
-    api_key=os.getenv("GROQ_API_KEY")
-  )
-  prompt=ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant that uses the following pieces of context to answer the users question. If you don't know the answer, just say you don't know, don't try to make up an answer. focus on the context:\n\n{context}"),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{input}")
-])
-  
-  stuff_documents_chain = create_stuff_documents_chain(llm=llm, prompt=prompt)
-  return create_retrieval_chain(retriever_chain, stuff_documents_chain)
+def get_conversational_rag_chain(retriever_chain):
+    llm = ChatGroq(
+        model="openai/gpt-oss-120b",
+        api_key=os.getenv("GROQ_API_KEY")
+    )
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "Answer the user's question using the context below. If you don't know the answer, say so. Use only the provided context:\n\n{context}"),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}")
+    ])
+
+    stuff_documents_chain = create_stuff_documents_chain(
+        llm=llm,
+        prompt=prompt
+    )
+
+    return create_retrieval_chain(
+        retriever_chain,
+        stuff_documents_chain
+    )
 
 def get_response(user_input):
-  retriever_chain = get_context_retriever_chain(st.session_state.vector_store)
-  conversation_rag_chain= get_conversational_rag_chain(retriever_chain)
-  response =conversation_rag_chain.invoke({
-          "chat_history":st.session_state.chat_history,
-          "input":user_query
-        })
-  return response['answer']
+    response = st.session_state.conversation_rag_chain.invoke({
+        "chat_history": st.session_state.chat_history,
+        "input": user_input
+    })
+    return response["answer"]
 #app configuration
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
 st.title("WEB-ASK")
@@ -86,20 +92,35 @@ else:
   if "vector_store" not in st.session_state:
     st.session_state.vector_store = get_vectorstore_from_url(website_url)
 
-  retriever_chain = get_context_retriever_chain(st.session_state.vector_store)
-  conversation_rag_chain= get_conversational_rag_chain(retriever_chain)
+  retriever_chain = get_context_retriever_chain(
+      st.session_state.vector_store
+  )
+
+  conversation_rag_chain = get_conversational_rag_chain(
+      retriever_chain
+  )
+
+  st.session_state.conversation_rag_chain = conversation_rag_chain
+
+  # Display previous messages
+  for message in st.session_state.chat_history:
+      if isinstance(message, AIMessage):
+          with st.chat_message("assistant"):
+              st.write(message.content)
+      elif isinstance(message, HumanMessage):
+          with st.chat_message("user"):
+              st.write(message.content)
+
   user_query = st.chat_input("Ask me!!")
 
-  if user_query is not None and user_query != "":
-      response=get_response(user_query)
+  if user_query:
+      response = get_response(user_query)
 
-      st.write(response)
+      st.session_state.chat_history.append(
+          HumanMessage(content=user_query)
+      )
+      st.session_state.chat_history.append(
+          AIMessage(content=response)
+      )
 
-  #conversation 
-  for message in st.session_state.chat_history:
-    if isinstance(message,AIMessage):
-      with st.chat_message("AI"):
-       st.write(message.content)
-    elif isinstance(message,HumanMessage):
-      with st.chat_message("You"):
-        st.write(message.content)
+      st.rerun()
