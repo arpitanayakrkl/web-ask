@@ -10,9 +10,17 @@ from langchain_classic.chains import create_history_aware_retriever,create_retri
 from langchain_groq import ChatGroq
 import os
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from urllib.parse import urlparse
 load_dotenv()
 
+def is_valid_url(url):
+    parsed_url = urlparse(url)
 
+    return (
+        parsed_url.scheme in ["http", "https"]
+        and bool(parsed_url.netloc)
+        and "." in parsed_url.netloc
+    )
 def get_vectorstore_from_url(url):
   #get text from website and convert it into vectorstore 
   loader = WebBaseLoader(url)
@@ -89,8 +97,19 @@ else:
     AIMessage(content="Hello,I am webask! Ask right away"),
     ]
  
-  if "vector_store" not in st.session_state:
-    st.session_state.vector_store = get_vectorstore_from_url(website_url)
+  if (
+    "loaded_url" not in st.session_state
+    or st.session_state.loaded_url != website_url
+):
+    with st.spinner("Processing website..."):
+        st.session_state.vector_store = get_vectorstore_from_url(website_url)
+
+    st.session_state.loaded_url = website_url
+
+    # Reset chat history for the new website
+    st.session_state.chat_history = [
+        AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+    ]
 
   retriever_chain = get_context_retriever_chain(
       st.session_state.vector_store
