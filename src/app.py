@@ -90,12 +90,17 @@ def get_response(user_input):
     return response["answer"]
 def reset_url():
     st.session_state.website_url = ""
+
+def clear_chat():
+    st.session_state.chat_history = [
+        AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+    ]
 #app configuration
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
 st.title("WEB-ASK")
 
 with st.sidebar:
-    st.header("Settings")
+    st.header("Enter Website URL")
 
     website_url = st.text_input(
         "Website URL",
@@ -107,6 +112,11 @@ with st.sidebar:
         on_click=reset_url,
         use_container_width=True
     )
+    st.button(
+    "Clear Chat",
+    on_click=clear_chat,
+    use_container_width=True
+)
 if not website_url.strip():
     st.info("Enter a website URL to get started.")
 
