@@ -112,18 +112,27 @@ else:
         ]
     
       if (
-        "loaded_url" not in st.session_state
-        or st.session_state.loaded_url != validated_url
-    ):
-        with st.spinner("Processing website..."):
-            st.session_state.vector_store = get_vectorstore_from_url(validated_url)
+    "loaded_url" not in st.session_state
+      or st.session_state.loaded_url != validated_url):
+        try:
+          with st.spinner("Processing website..."):
+              new_vector_store = get_vectorstore_from_url(validated_url)
 
-        st.session_state.loaded_url = validated_url
+          st.session_state.vector_store = new_vector_store
+          st.session_state.loaded_url = validated_url
 
-        # Reset chat history for the new website
-        st.session_state.chat_history = [
-            AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
-        ]
+          st.session_state.chat_history = [
+              AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+          ]
+
+        except Exception:
+            st.error("Unable to process this website. Check the URL or try another website.")
+            st.stop()
+
+            # Reset chat history for the new website
+            st.session_state.chat_history = [
+                AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+            ]
 
       retriever_chain = get_context_retriever_chain(
           st.session_state.vector_store
