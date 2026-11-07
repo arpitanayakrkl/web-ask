@@ -20,3 +20,4 @@ langgraph-sdk==0.4.4
 python-dotenv==1.2.3
 soupsieve==2.8.4
 streamlit==1.62.0
+sentence-transformers

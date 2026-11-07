@@ -147,8 +147,9 @@ else:
               AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
           ]
 
-        except Exception:
-            st.error("Unable to process this website. Check the URL or try another website.")
+        except Exception as e:
+            st.error(f"Unable to process website: {str(e)}")
+            st.exception(e)
             st.stop()
 
             # Reset chat history for the new website
