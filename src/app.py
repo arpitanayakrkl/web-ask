@@ -88,13 +88,25 @@ def get_response(user_input):
         "input": user_input
     })
     return response["answer"]
+def reset_url():
+    st.session_state.website_url = ""
 #app configuration
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
 st.title("WEB-ASK")
 
 with st.sidebar:
-  st.header("settings")
-  website_url = st.text_input("website url")
+    st.header("Settings")
+
+    website_url = st.text_input(
+        "Website URL",
+        key="website_url"
+    )
+
+    st.button(
+        "Reset URL",
+        on_click=reset_url,
+        use_container_width=True
+    )
 if not website_url.strip():
     st.info("Enter a website URL to get started.")
 
