@@ -14,13 +14,20 @@ from urllib.parse import urlparse
 load_dotenv()
 
 def is_valid_url(url):
+    url = url.strip()
+
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
     parsed_url = urlparse(url)
 
-    return (
-        parsed_url.scheme in ["http", "https"]
-        and bool(parsed_url.netloc)
-        and "." in parsed_url.netloc
-    )
+    if parsed_url.scheme not in ["http", "https"]:
+        return None
+
+    if not parsed_url.netloc or "." not in parsed_url.netloc:
+        return None
+
+    return url
 def get_vectorstore_from_url(url):
   #get text from website and convert it into vectorstore 
   loader = WebBaseLoader(url)
@@ -88,58 +95,65 @@ st.title("WEB-ASK")
 with st.sidebar:
   st.header("settings")
   website_url = st.text_input("website url")
-if website_url is None or  website_url == "":
-  st.info("please enter a website url")
+if not website_url.strip():
+    st.info("Enter a website URL to get started.")
+
 else:
-  #session state
-  if "chat_history" not in st.session_state:
-    st.session_state.chat_history=[
-    AIMessage(content="Hello,I am webask! Ask right away"),
-    ]
- 
-  if (
-    "loaded_url" not in st.session_state
-    or st.session_state.loaded_url != website_url
-):
-    with st.spinner("Processing website..."):
-        st.session_state.vector_store = get_vectorstore_from_url(website_url)
+    validated_url = is_valid_url(website_url)
 
-    st.session_state.loaded_url = website_url
+    if validated_url is None:
+        st.error("Please enter a valid website URL.")
 
-    # Reset chat history for the new website
-    st.session_state.chat_history = [
-        AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
-    ]
+    else:
+      #session state
+      if "chat_history" not in st.session_state:
+        st.session_state.chat_history=[
+        AIMessage(content="Hello,I am webask! Ask right away"),
+        ]
+    
+      if (
+        "loaded_url" not in st.session_state
+        or st.session_state.loaded_url != validated_url
+    ):
+        with st.spinner("Processing website..."):
+            st.session_state.vector_store = get_vectorstore_from_url(validated_url)
 
-  retriever_chain = get_context_retriever_chain(
-      st.session_state.vector_store
-  )
+        st.session_state.loaded_url = validated_url
 
-  conversation_rag_chain = get_conversational_rag_chain(
-      retriever_chain
-  )
+        # Reset chat history for the new website
+        st.session_state.chat_history = [
+            AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+        ]
 
-  st.session_state.conversation_rag_chain = conversation_rag_chain
-
-  # Display previous messages
-  for message in st.session_state.chat_history:
-      if isinstance(message, AIMessage):
-          with st.chat_message("assistant"):
-              st.write(message.content)
-      elif isinstance(message, HumanMessage):
-          with st.chat_message("user"):
-              st.write(message.content)
-
-  user_query = st.chat_input("Ask me!!")
-
-  if user_query:
-      response = get_response(user_query)
-
-      st.session_state.chat_history.append(
-          HumanMessage(content=user_query)
-      )
-      st.session_state.chat_history.append(
-          AIMessage(content=response)
+      retriever_chain = get_context_retriever_chain(
+          st.session_state.vector_store
       )
 
-      st.rerun()
+      conversation_rag_chain = get_conversational_rag_chain(
+          retriever_chain
+      )
+
+      st.session_state.conversation_rag_chain = conversation_rag_chain
+
+      # Display previous messages
+      for message in st.session_state.chat_history:
+          if isinstance(message, AIMessage):
+              with st.chat_message("assistant"):
+                  st.write(message.content)
+          elif isinstance(message, HumanMessage):
+              with st.chat_message("user"):
+                  st.write(message.content)
+
+      user_query = st.chat_input("Ask me!!")
+
+      if user_query:
+          response = get_response(user_query)
+
+          st.session_state.chat_history.append(
+              HumanMessage(content=user_query)
+          )
+          st.session_state.chat_history.append(
+              AIMessage(content=response)
+          )
+
+          st.rerun()
