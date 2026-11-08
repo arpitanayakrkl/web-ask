@@ -29,22 +29,36 @@ def is_valid_url(url):
 
     return url
 def get_vectorstore_from_url(url):
-  #get text from website and convert it into vectorstore 
-  loader = WebBaseLoader(url)
-  document = loader.load()
-  #document splitting 
-  text_splitter = RecursiveCharacterTextSplitter()
-  document_chunks = text_splitter.split_documents(document)
-  #create vectorstore from document chunks
-  embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-  )
+    loader = WebBaseLoader(url)
+    document = loader.load()
 
-  vector_store = Chroma.from_documents(
-    documents=document_chunks,
-    embedding=embeddings
-  )
-  return vector_store
+    if not document:
+        raise ValueError(
+            "No content could be extracted from this website."
+        )
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200
+    )
+
+    document_chunks = text_splitter.split_documents(document)
+
+    if not document_chunks:
+        raise ValueError(
+            "The website does not contain enough readable content."
+        )
+
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    vector_store = Chroma.from_documents(
+        documents=document_chunks,
+        embedding=embeddings
+    )
+
+    return vector_store
 
 def get_context_retriever_chain(vector_store):
   llm = ChatGroq(
@@ -88,14 +102,8 @@ def get_response(user_input):
         "input": user_input
     })
 
-    print("Retrieved documents:", len(response["context"]))
-
-    for doc in response["context"]:
-        print("Metadata:", doc.metadata)
-
     return response
 
-    return response
 def reset_url():
     st.session_state.website_url = ""
 
@@ -159,11 +167,6 @@ else:
             st.error(f"Unable to process website: {str(e)}")
             st.exception(e)
             st.stop()
-
-            # Reset chat history for the new website
-            st.session_state.chat_history = [
-                AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
-            ]
 
       retriever_chain = get_context_retriever_chain(
           st.session_state.vector_store
