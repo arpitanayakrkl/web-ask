@@ -87,7 +87,15 @@ def get_response(user_input):
         "chat_history": st.session_state.chat_history,
         "input": user_input
     })
-    return response["answer"]
+
+    print("Retrieved documents:", len(response["context"]))
+
+    for doc in response["context"]:
+        print("Metadata:", doc.metadata)
+
+    return response
+
+    return response
 def reset_url():
     st.session_state.website_url = ""
 
@@ -170,8 +178,15 @@ else:
       # Display previous messages
       for message in st.session_state.chat_history:
           if isinstance(message, AIMessage):
-              with st.chat_message("assistant"):
-                  st.write(message.content)
+            with st.chat_message("assistant"):
+                st.write(message.content)
+
+                sources = message.additional_kwargs.get("sources", [])
+
+                if sources:
+                    with st.expander("View Sources"):
+                        for source in sources:
+                            st.markdown(f"- [{source}]({source})")
           elif isinstance(message, HumanMessage):
               with st.chat_message("user"):
                   st.write(message.content)
@@ -179,13 +194,26 @@ else:
       user_query = st.chat_input("Ask me!!")
 
       if user_query:
-          response = get_response(user_query)
+        response = get_response(user_query)
 
-          st.session_state.chat_history.append(
-              HumanMessage(content=user_query)
-          )
-          st.session_state.chat_history.append(
-              AIMessage(content=response)
-          )
+        answer = response["answer"]
 
-          st.rerun()
+        # Extract source URLs
+        sources = list(dict.fromkeys(
+            doc.metadata.get("source")
+            for doc in response["context"]
+            if doc.metadata.get("source")
+        ))
+
+        st.session_state.chat_history.append(
+            HumanMessage(content=user_query)
+        )
+
+        st.session_state.chat_history.append(
+            AIMessage(
+                content=answer,
+                additional_kwargs={"sources": sources}
+            )
+        )
+
+        st.rerun()
