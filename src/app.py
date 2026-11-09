@@ -19,6 +19,29 @@ def get_supabase_client():
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_KEY"]
     )
+def register_user(email, password):
+    return st.session_state.supabase.auth.sign_up({
+        "email": email,
+        "password": password
+    })
+
+
+def login_user(email, password):
+    return st.session_state.supabase.auth.sign_in_with_password({
+        "email": email,
+        "password": password
+    })
+
+
+def logout_user():
+    st.session_state.supabase.auth.sign_out()
+
+    # Clear user-specific application state
+    st.session_state.user = None
+    st.session_state.chat_history = []
+    st.session_state.loaded_url = None
+    st.session_state.vector_store = None
+    st.session_state.conversation_rag_chain = None
 def is_valid_url(url):
     url = url.strip()
 
@@ -129,6 +152,93 @@ def clear_chat():
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
 if "supabase" not in st.session_state:
     st.session_state.supabase = get_supabase_client()
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+
+if st.session_state.user is None:
+
+    st.title("WEB-ASK")
+    st.subheader("Welcome")
+
+    login_tab, register_tab = st.tabs(["Login", "Register"])
+
+    with login_tab:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            login_button = st.form_submit_button("Login")
+
+        if login_button:
+            try:
+                response = login_user(email.strip(), password)
+
+                if response.session and response.user:
+                    st.session_state.user = {
+                        "id": response.user.id,
+                        "email": response.user.email
+                    }
+                    st.rerun()
+                else:
+                    st.error("Login failed. Please try again.")
+
+            except Exception:
+                st.error("Login failed. Check your credentials and email confirmation.")
+
+    with register_tab:
+        with st.form("register_form"):
+            new_email = st.text_input("Email", key="register_email")
+            new_password = st.text_input(
+                "Password", type="password", key="register_password"
+            )
+            confirm_password = st.text_input(
+                "Confirm password", type="password"
+            )
+            register_button = st.form_submit_button("Create account")
+
+        if register_button:
+            if not new_email.strip() or not new_password:
+                st.warning("Please enter an email and password.")
+
+            elif new_password != confirm_password:
+                st.warning("Passwords do not match.")
+
+            elif len(new_password) < 8:
+                st.warning("Password must contain at least 8 characters.")
+
+            else:
+                try:
+                    response = register_user(
+                        new_email.strip(), new_password
+                    )
+
+                    if response.session and response.user:
+                        st.session_state.user = {
+                            "id": response.user.id,
+                            "email": response.user.email
+                        }
+                        st.rerun()
+                    else:
+                        st.success(
+                            "Account created. Check your email to confirm "
+                            "your account, then log in."
+                        )
+
+                except Exception:
+                    st.error(
+                        "Registration failed. The email may already be registered."
+                    )
+
+    st.stop()
+
+# Authenticated user controls
+st.sidebar.write(f"Logged in as: {st.session_state.user['email']}")
+
+if st.sidebar.button("Logout"):
+    logout_user()
+    st.rerun()
+    
 st.sidebar.success("Supabase connected!")
 st.title("WEB-ASK")
 if "loaded_url" not in st.session_state:
