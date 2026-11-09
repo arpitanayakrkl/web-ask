@@ -11,8 +11,14 @@ from langchain_groq import ChatGroq
 import os
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from urllib.parse import urlparse
-load_dotenv()
+from supabase import create_client
 
+load_dotenv()
+def get_supabase_client():
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_KEY"]
+    )
 def is_valid_url(url):
     url = url.strip()
 
@@ -107,14 +113,32 @@ def get_response(user_input):
 def reset_url():
     st.session_state.website_url = ""
 
+    st.session_state.chat_history = [
+        AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
+    ]
+
+    st.session_state.loaded_url = None
+    st.session_state.vector_store = None
+    st.session_state.conversation_rag_chain = None
+
 def clear_chat():
     st.session_state.chat_history = [
         AIMessage(content="Hello, I am WEB-ASK! Ask right away.")
     ]
 #app configuration
 st.set_page_config(page_title="ask any website", page_icon="blue_book")
+if "supabase" not in st.session_state:
+    st.session_state.supabase = get_supabase_client()
+st.sidebar.success("Supabase connected!")
 st.title("WEB-ASK")
+if "loaded_url" not in st.session_state:
+    st.session_state.loaded_url = None
 
+if "vector_store" not in st.session_state:
+    st.session_state.vector_store = None
+
+if "conversation_rag_chain" not in st.session_state:
+    st.session_state.conversation_rag_chain = None
 with st.sidebar:
     st.header("Enter Website URL")
 
