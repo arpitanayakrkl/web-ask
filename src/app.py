@@ -15,10 +15,16 @@ from supabase import create_client
 
 load_dotenv()
 def get_supabase_client():
-    return create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_KEY"]
-    )
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
+
+    if not supabase_url:
+        supabase_url = st.secrets["SUPABASE_URL"]
+
+    if not supabase_key:
+        supabase_key = st.secrets["SUPABASE_KEY"]
+
+    return create_client(supabase_url, supabase_key)
 def register_user(email, password):
     return st.session_state.supabase.auth.sign_up({
         "email": email,
@@ -94,7 +100,10 @@ def get_context_retriever_chain(vector_store):
     model="openai/gpt-oss-120b",
     api_key=os.getenv("GROQ_API_KEY")
 )
-  retriever=vector_store.as_retriever()
+  retriever = vector_store.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 4}
+)
   prompt = ChatPromptTemplate.from_messages([
     ("system", "Given the chat history and the latest follow-up question, generate a standalone search query to retrieve relevant information. If the follow-up question is unrelated to the chat history, use the latest question as the search query."),
     MessagesPlaceholder(variable_name="chat_history"),
@@ -351,8 +360,12 @@ else:
 
                 if sources:
                     with st.expander("View Sources"):
-                        for source in sources:
-                            st.markdown(f"- [{source}]({source})")
+                        for i, source in enumerate(sources, 1):
+                            st.markdown(f"**Source {i}**")
+                            st.markdown(f"[Open webpage]({source['url']})")
+                            st.caption("Retrieved passage:")
+                            st.write(source["excerpt"])
+                            st.divider()
           elif isinstance(message, HumanMessage):
               with st.chat_message("user"):
                   st.write(message.content)
@@ -370,11 +383,19 @@ else:
 
             answer = response["answer"]
 
-            sources = list(dict.fromkeys(
-                doc.metadata.get("source")
-                for doc in response["context"]
-                if doc.metadata.get("source")
-            ))
+            sources = []
+            seen = set()
+
+            for doc in response["context"]:
+                url = doc.metadata.get("source")
+                excerpt = doc.page_content[:500]
+
+                if url and (url, excerpt) not in seen:
+                    sources.append({
+                        "url": url,
+                        "excerpt": excerpt
+                    })
+                    seen.add((url, excerpt))
 
             st.session_state.chat_history.append(
                 HumanMessage(content=user_query)
